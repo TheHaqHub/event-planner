@@ -78,23 +78,17 @@ async function main() {
   // Single reader call
   const readerResponse = await readMessages(messagesToProcess, currentTraceN + 1);
 
-  // Requirement 2: If result is null, print "reader failed", keep old plan, exit cleanly
-  if (!readerResponse || readerResponse.result === null || readerResponse.result === undefined) {
-    console.log('reader failed');
-    process.exit(0);
-  }
-
-  // Requirement 3: Trace entries handling (array of entries)
-  const incomingTraceEntries = readerResponse.traceEntries || 
-    (readerResponse.traceEntry ? [readerResponse.traceEntry] : []);
+  // Record incoming trace entries
+  const incomingTraceEntries = readerResponse?.traceEntries || 
+    (readerResponse?.traceEntry ? [readerResponse.traceEntry] : []);
 
   for (const entry of incomingTraceEntries) {
     currentTraceN += 1;
     const formattedEntry = {
       ...entry,
       n: currentTraceN,
-      tokensIn: entry.tokensIn !== undefined ? entry.tokensIn : null,
-      tokensOut: entry.tokensOut !== undefined ? entry.tokensOut : null
+      tokensIn: typeof entry.tokensIn === 'number' ? entry.tokensIn : null,
+      tokensOut: typeof entry.tokensOut === 'number' ? entry.tokensOut : null
     };
     state.trace.push(formattedEntry);
 
@@ -104,6 +98,13 @@ async function main() {
     if (typeof entry.tokensOut === 'number') {
       state.totalTokens = (state.totalTokens || 0) + entry.tokensOut;
     }
+  }
+
+  // If reader failed, keep old plan unchanged, record failed call in trace, exit cleanly
+  if (!readerResponse || readerResponse.result === null || readerResponse.result === undefined) {
+    saveState(state);
+    console.log(`Reader failed: ${readerResponse?.error || 'LLM call failed'}`);
+    process.exit(0);
   }
 
   // Requirement 2 & 4: Result is an array. Map by position and assign our own IDs.

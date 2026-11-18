@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-// Load .env manually if dotenv is not installed
+// Automatically load .env if present
 function loadEnv() {
   const envPath = path.resolve('.env');
   if (fs.existsSync(envPath)) {
@@ -29,24 +29,38 @@ function loadEnv() {
 loadEnv();
 
 /**
- * Main reader function.
- * Returns { result, traceEntry, traceEntries }.
+ * Main reader function connecting to Groq / LLM.
+ * Returns { result, traceEntry, traceEntries, error }.
  * 
  * @param {Array<{id: number, text: string}>} newMessages 
  * @param {number} traceNumber 
- * @returns {Promise<{result: Array|null, traceEntry: object, traceEntries: Array}>}
+ * @returns {Promise<{result: Array|null, traceEntry: object|null, traceEntries: Array, error?: string}>}
  */
 export async function readMessages(newMessages, traceNumber = 1) {
   const apiKey = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
-  const isMock = process.env.MOCK_READER === '1' || !apiKey;
 
-  if (isMock) {
-    return runMockReader(newMessages, traceNumber);
+  if (!apiKey) {
+    const errorMsg = 'LLM_API_KEY is missing from environment or .env';
+    const failedTrace = {
+      n: traceNumber,
+      model: process.env.LLM_MODEL || 'groq-reader',
+      area: 'reading',
+      input: `${newMessages.length} message(s) to process`,
+      output: `Reader failed: ${errorMsg}`,
+      tokensIn: null,
+      tokensOut: null
+    };
+    return {
+      result: null,
+      traceEntry: failedTrace,
+      traceEntries: [failedTrace],
+      error: errorMsg
+    };
   }
 
-  // Attempt real Groq / LLM call with 1 retry
   const traceEntries = [];
   const maxAttempts = 2;
+  let lastError = '';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -61,13 +75,13 @@ export async function readMessages(newMessages, traceNumber = 1) {
         };
       }
     } catch (err) {
-      console.error(`LLM Reader attempt ${attempt} failed: ${err.message}`);
+      lastError = err.message;
       traceEntries.push({
         n: traceNumber + attempt - 1,
-        model: process.env.LLM_MODEL || 'groq-reader',
+        model: process.env.LLM_MODEL || 'llama-3.1-8b-instant',
         area: 'reading',
         input: `Attempt ${attempt}: ${newMessages.length} message(s)`,
-        output: `Error: ${err.message}`,
+        output: `Reader failed: ${err.message}`,
         tokensIn: null,
         tokensOut: null
       });
@@ -76,7 +90,8 @@ export async function readMessages(newMessages, traceNumber = 1) {
         return {
           result: null,
           traceEntry: traceEntries[traceEntries.length - 1],
-          traceEntries
+          traceEntries,
+          error: lastError
         };
       }
     }
@@ -85,12 +100,13 @@ export async function readMessages(newMessages, traceNumber = 1) {
   return {
     result: null,
     traceEntry: traceEntries[traceEntries.length - 1] || null,
-    traceEntries
+    traceEntries,
+    error: lastError || 'Unknown reader error'
   };
 }
 
 /**
- * Calls Groq / OpenAI compatible API endpoint.
+ * Calls Groq / OpenAI compatible API endpoint with robust structured prompting.
  */
 async function callGroqAPI(newMessages, currentTraceN, attemptNum) {
   const baseUrl = (process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
@@ -100,14 +116,16 @@ async function callGroqAPI(newMessages, currentTraceN, attemptNum) {
 
   const systemPrompt = `You are a strict data extraction parser for an event planning agent.
 Your output must be valid JSON with key "messages" containing an array of message objects.
-Every fact inside "facts" MUST use key "k" (NOT "kind"):
-- {"k":"param", "name":"headcount_students"|"team_size"|"duration_hours"|"budget_total"|"staff_count"|"prayer_break_min"|"judge_minutes_per_team"|"judge_max_teams"|"judges_confirmed"|"honorarium", "value": number}
-- {"k":"venue", "name": string, "capacity": number, "cost": number, "features": string[]}
-- {"k":"price", "item": string, "amount": number, "per": "head"}
-- {"k":"expense", "item": string, "amount": number}
-- {"k":"request", "item": string, "amount": number}
-- {"k":"claim", "about": string, "value": any}
-- {"k":"constraint", "area": string, "rule": string}
+Rules:
+1. Item names MUST be lowercase, 2-3 words (e.g. "standard lunch box", "basic lunch box", "printing", "prizes"). Same thing = same name.
+2. Facts MUST use key "k" (NOT "kind"):
+   - {"k":"param", "name":"headcount_students"|"team_size"|"duration_hours"|"budget_total"|"staff_count"|"prayer_break_min"|"judge_minutes_per_team"|"judge_max_teams"|"judges_confirmed"|"honorarium", "value": number}
+   - {"k":"venue", "name": string, "capacity": number, "cost": number, "features": string[]}
+   - {"k":"price", "item": string, "amount": number, "per": "head"}
+   - {"k":"expense", "item": string, "amount": number}
+   - {"k":"request", "item": string, "amount": number}
+   - {"k":"claim", "about": "food_quantity"|"judge_count"|"venue"|"price"|"schedule"|"other", "value": any}
+   - {"k":"constraint", "area": string, "rule": string}
 
 Schema:
 {
@@ -157,14 +175,12 @@ Extract facts accurately from English and Roman Urdu texts.`;
   const choiceText = data.choices?.[0]?.message?.content || '{}';
   const parsed = JSON.parse(choiceText);
 
-  // Normalize to pure array
   let resultMessages = [];
   if (Array.isArray(parsed)) {
     resultMessages = parsed;
   } else if (Array.isArray(parsed.messages)) {
     resultMessages = parsed.messages;
   } else {
-    // If keyed by another property
     const firstVal = Object.values(parsed)[0];
     if (Array.isArray(firstVal)) {
       resultMessages = firstVal;
@@ -187,99 +203,5 @@ Extract facts accurately from English and Roman Urdu texts.`;
   return {
     result: resultMessages,
     traceEntry
-  };
-}
-
-/**
- * Mock reader implementation for testing and offline runs.
- */
-function runMockReader(newMessages, traceNumber) {
-  const mockPath = path.resolve('tests', 'mockReader.json');
-  let mockList = [];
-
-  if (fs.existsSync(mockPath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(mockPath, 'utf-8'));
-      mockList = Array.isArray(parsed) ? parsed : (parsed.messages || []);
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  const resultMessages = [];
-
-  for (let i = 0; i < newMessages.length; i++) {
-    const msg = newMessages[i];
-    const rawText = (msg.text || '').trim();
-
-    // Practice Message 1: Finance printing update (no date)
-    if (/printing bill|Rs 15,000/i.test(rawText)) {
-      resultMessages.push({
-        sender: 'Finance, email',
-        date: '',
-        relevant: true,
-        reason: '',
-        facts: [
-          { k: 'expense', item: 'printing', amount: 15000 }
-        ]
-      });
-      continue;
-    }
-
-    // Practice Message 2: Caterer 100 boxes claim (Invalid)
-    if (/rounded your order down to 100 boxes/i.test(rawText)) {
-      resultMessages.push({
-        sender: 'Caterer, WhatsApp',
-        date: '',
-        relevant: true,
-        reason: '',
-        facts: [
-          { k: 'claim', about: 'food_quantity', value: 100 }
-        ]
-      });
-      continue;
-    }
-
-    // Practice Message 3: Unknown constraint
-    if (/high ceilings|constraint/i.test(rawText)) {
-      resultMessages.push({
-        sender: 'Organizer, email',
-        date: '',
-        relevant: true,
-        reason: '',
-        facts: [
-          { k: 'constraint', area: 'venue', rule: 'Must have high ceilings for drone display' }
-        ]
-      });
-      continue;
-    }
-
-    if (i < mockList.length) {
-      resultMessages.push({ ...mockList[i] });
-    } else {
-      resultMessages.push({
-        sender: 'Unknown',
-        date: '',
-        relevant: true,
-        reason: '',
-        facts: []
-      });
-    }
-  }
-
-  const traceEntry = {
-    n: traceNumber,
-    model: 'mock-reader',
-    area: 'reading',
-    input: `Extracted ${newMessages.length} message(s)`,
-    output: `Parsed ${resultMessages.length} structured message(s)`,
-    tokensIn: 0,
-    tokensOut: 0
-  };
-
-  return {
-    result: resultMessages,
-    traceEntry,
-    traceEntries: [traceEntry]
   };
 }

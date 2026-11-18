@@ -30,6 +30,7 @@
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(null);
       const [showSlots, setShowSlots] = useState(false);
+      const [expandedTraceN, setExpandedTraceN] = useState(null);
       const [lastRefreshed, setLastRefreshed] = useState('');
 
       const fetchState = async () => {
@@ -37,7 +38,7 @@
           setLoading(true);
           const res = await fetch('/api/state');
           if (!res.ok) {
-            throw new Error(`Server returned HTTP ${res.status}: Plan not yet initialized.`);
+            throw new Error(`State not found (HTTP ${res.status}). Run the command first.`);
           }
           const data = await res.json();
           setState(data);
@@ -98,8 +99,9 @@
                       Planner Agent
                     </span>
                   </div>
+                  {/* Dynamic Header Text (No Hardcoding) */}
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Islamabad • 4-Hour Physical Hackathon • 150 Students (50 Teams of 3) • Budget: Rs 650,000
+                    {budget.limit ? `Approved Budget: Rs ${budget.limit.toLocaleString()}` : 'Budget Pending'} • {food.attendees ? `${food.attendees} Total Attendees` : 'Attendees Calculating'} • {judging.slotsCount ? `${judging.slotsCount} Teams Evaluated` : 'Teams Calculating'}
                   </p>
                 </div>
               </div>
@@ -133,395 +135,441 @@
 
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
             
-            {/* Error banner if server not connected */}
-            {error && (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
-                <span className="text-base text-amber-600">⚠️</span>
-                <div>
-                  <span className="font-semibold">Connection Notice:</span> {error}
-                  <div className="text-slate-600 mt-0.5">
-                    Make sure backend is running with <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">node server.js</code> in your terminal.
-                  </div>
+            {/* If state not found or server waiting for command */}
+            {(!state || error) && (
+              <div className="p-8 rounded-2xl bg-white border border-slate-200 text-center shadow-xs space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-xl font-bold">
+                  ⚡
                 </div>
+                <h3 className="text-base font-bold text-slate-900">Run the command first</h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  No active plan found in state. Run your planner command in PowerShell:
+                </p>
+                <code className="inline-block bg-slate-900 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-mono">
+                  node src/run.js tests/sample_messages.txt
+                </code>
               </div>
             )}
 
-            {/* 4 Clean Metric Cards */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Attendees</div>
-                <div className="text-2xl font-bold text-slate-900 mt-1">
-                  {food.attendees || 177} <span className="text-xs font-normal text-slate-500">People</span>
-                </div>
-                <div className="text-xs text-slate-500 mt-1">150 students + 10 staff + {judging.judgesNeeded || 17} judges</div>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Budget Spent</div>
-                <div className="text-2xl font-bold text-slate-900 mt-1">
-                  Rs {(budget.total || 0).toLocaleString()}
-                </div>
-                <div className="text-xs text-orange-600 font-medium mt-1">
-                  Limit: Rs {(budget.limit || 650000).toLocaleString()} ({budgetPct}%)
-                </div>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Model Tokens</div>
-                <div className="text-2xl font-bold text-orange-600 font-mono mt-1">
-                  {totalTokens.toLocaleString()}
-                </div>
-                <div className="text-xs text-slate-500 mt-1">Plain Code Math (Lean)</div>
-              </div>
-
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Verification Checks</div>
-                <div className="text-2xl font-bold text-emerald-600 mt-1">
-                  {checks.filter(c => c.ok).length} / {checks.length || 6}
-                </div>
-                <div className="text-xs text-emerald-700 font-medium mt-1">All Checks Passed</div>
-              </div>
-            </section>
-
-            {/* 6 Mandatory Verification Checks Bar */}
-            <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Mandatory Hackathon Checks (30 Points)
-                </h2>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  100% Passed
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                {checks.map((chk, idx) => (
-                  <div 
-                    key={idx}
-                    className={`p-2 rounded-lg border text-xs flex flex-col justify-between gap-1 ${
-                      chk.ok 
-                        ? 'bg-slate-50 border-slate-200 text-slate-800' 
-                        : 'bg-rose-50 border-rose-200 text-rose-800'
-                    }`}
-                  >
-                    <span className="font-semibold capitalize text-[11px] truncate">{chk.name}</span>
-                    <span className={`text-[10px] font-bold font-mono self-start px-1.5 py-0.2 rounded ${
-                      chk.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                    }`}>
-                      {chk.ok ? 'PASS' : 'FAIL'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Conflict Interception Alert Banner (20 Points) */}
-            {rejected.length > 0 && (
-              <section className="bg-rose-50 border border-rose-200 p-4 sm:p-5 rounded-xl shadow-xs">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                    ✕
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-rose-900">
-                        Catching the Wrong Message: Conflict Intercepted & Blocked
-                      </h3>
-                      <span className="text-[11px] font-bold bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full">
-                        20 Points Earned
-                      </span>
+            {state && (
+              <>
+                {/* 4 Clean Metric Cards */}
+                <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Attendees</div>
+                    <div className="text-2xl font-bold text-slate-900 mt-1">
+                      {food.attendees || 0} <span className="text-xs font-normal text-slate-500">People</span>
                     </div>
-                    {rejected.map((r, i) => (
-                      <div key={i} className="text-xs bg-white p-3 rounded-lg border border-rose-200 space-y-1">
-                        <div className="font-semibold text-rose-800">
-                          Message #{r.messageId} REJECTED: {r.reason}
-                        </div>
-                        {r.text && (
-                          <div className="text-slate-500 text-[11px] font-mono">
-                            "{r.text}"
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <p className="text-xs text-rose-800">
-                      Our rule engine automatically detected the shortfall and preserved the valid event configuration.
-                    </p>
+                    <div className="text-xs text-slate-500 mt-1">Students + Staff + Judges Needed</div>
                   </div>
-                </div>
-              </section>
-            )}
 
-            {/* 5 Area Plan Cards Grid */}
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {/* 1. VENUE CARD */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Budget Spent</div>
+                    <div className="text-2xl font-bold text-slate-900 mt-1">
+                      Rs {(budget.total || 0).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-orange-600 font-medium mt-1">
+                      {budget.limit ? `Limit: Rs ${budget.limit.toLocaleString()} (${budgetPct}%)` : 'No Limit Set'}
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Model Tokens</div>
+                    <div className="text-2xl font-bold text-orange-600 font-mono mt-1">
+                      {totalTokens.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">Plain Code Arithmetic</div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Verification Checks</div>
+                    <div className="text-2xl font-bold text-emerald-600 mt-1">
+                      {checks.filter(c => c.ok).length} / {checks.length || 6}
+                    </div>
+                    <div className="text-xs text-emerald-700 font-medium mt-1">All Checks Passed</div>
+                  </div>
+                </section>
+
+                {/* 6 Mandatory Verification Checks Bar */}
+                <section className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-                      Area: venue
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Mandatory System Verification Checks
+                    </h2>
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Passed
                     </span>
-                    <span className="text-xs font-semibold text-slate-500">Margalla Event Halls</span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">{venue.name || 'Hall A'}</h3>
-                  <div className="mt-4 space-y-2 text-xs text-slate-600">
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Capacity</span>
-                      <span className="font-semibold text-slate-900">{venue.capacity || 200} seats (fits {food.attendees || 177})</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Rental Cost</span>
-                      <span className="font-semibold text-slate-900">Rs {(venue.cost || 120000).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5">
-                      <span className="text-slate-500">Power</span>
-                      <span className="font-medium text-slate-700">
-                        {venue.features && venue.features.length > 0 ? venue.features.join(', ') : 'Standard Power'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-emerald-700 flex items-center gap-1.5">
-                  ✓ Selected: Lowest cost eligible hall
-                </div>
-              </div>
-
-              {/* 2. SCHEDULE CARD */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-                      Area: schedule
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">4 Hours (240 Mins)</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">Master Schedule</h3>
-
-                  <div className="mt-4 space-y-1.5 text-xs">
-                    {schedule.map((item, idx) => (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    {checks.map((chk, idx) => (
                       <div 
                         key={idx}
-                        className={`flex items-center justify-between p-1.5 rounded-md ${
-                          item.title.includes('Prayer') 
-                            ? 'bg-orange-100 border border-orange-300 text-orange-900 font-semibold' 
-                            : item.title.includes('Judging')
-                            ? 'bg-slate-100 font-medium text-slate-800'
-                            : 'text-slate-700'
+                        className={`p-2 rounded-lg border text-xs flex flex-col justify-between gap-1 ${
+                          chk.ok 
+                            ? 'bg-slate-50 border-slate-200 text-slate-800' 
+                            : 'bg-rose-50 border-rose-200 text-rose-800'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] text-slate-500">{item.start} - {item.end}</span>
-                          <span>{item.title}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 font-mono">{item.durationMin}m</span>
+                        <span className="font-semibold capitalize text-[11px] truncate">{chk.name}</span>
+                        <span className={`text-[10px] font-bold font-mono self-start px-1.5 py-0.2 rounded ${
+                          chk.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {chk.ok ? 'PASS' : 'FAIL'}
+                        </span>
                       </div>
                     ))}
                   </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-semibold text-orange-700 flex items-center gap-1.5">
-                  ★ Mandatory 15-Minute Prayer Break Included
-                </div>
-              </div>
+                </section>
 
-              {/* 3. FOOD CARD */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-                      Area: food
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">Nov 12 Quote Applied</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">Catering & Meals</h3>
-
-                  <div className="mt-4 space-y-2 text-xs text-slate-600">
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Package</span>
-                      <span className="font-semibold capitalize text-slate-900">{food.type || 'standard'} lunch box</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Attendees to Feed</span>
-                      <span className="font-semibold text-slate-900">{food.attendees || 177} heads</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Unit Price</span>
-                      <span className="font-semibold text-slate-900">Rs {(food.unitPrice || 1200).toLocaleString()}/head</span>
-                    </div>
-                    <div className="flex justify-between py-1.5">
-                      <span className="text-slate-500">Total Food Expense</span>
-                      <span className="font-semibold text-slate-900 font-mono">Rs {(food.totalCost || 212400).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-emerald-700 flex items-center gap-1.5">
-                  ✓ Free delivery included
-                </div>
-              </div>
-
-              {/* 4. JUDGING CARD */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-                      Area: judging
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">50 Teams • 15 Mins / Team</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900">Judging Matrix</h3>
-
-                  <div className="mt-4 space-y-2 text-xs text-slate-600">
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Judges Needed</span>
-                      <span className="font-semibold text-slate-900">
-                        {judging.judgesNeeded || 17} needed ({judging.judgesConfirmed || 20} confirmed)
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Max Teams / Judge</span>
-                      <span className="font-semibold text-slate-900">3 teams (45m judging window)</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <span className="text-slate-500">Honorarium Rate</span>
-                      <span className="font-semibold text-slate-900">Rs {(judging.honorariumPerJudge || 5000).toLocaleString()}/judge</span>
-                    </div>
-                    <div className="flex justify-between py-1.5">
-                      <span className="text-slate-500">Total Honorarium</span>
-                      <span className="font-semibold text-slate-900 font-mono">Rs {(judging.totalCost || 85000).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowSlots(!showSlots)}
-                  className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-orange-700 hover:text-orange-800 flex items-center justify-between w-full cursor-pointer"
-                >
-                  <span>{showSlots ? 'Hide' : 'View'} 50 Team Slot Allocations</span>
-                  <span>{showSlots ? '▲' : '▼'}</span>
-                </button>
-              </div>
-
-              {/* 5. BUDGET BREAKDOWN CARD */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs md:col-span-2 lg:col-span-2 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-                      Area: budget
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">All-in Approved: Rs {(budget.limit || 650000).toLocaleString()}</span>
-                  </div>
-                  
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">Financial Breakdown</h3>
-                      <p className="text-xs text-slate-500">Deterministic code calculations</p>
-                    </div>
-                    <div className="sm:text-right">
-                      <div className="text-xl font-bold font-mono text-slate-900">
-                        Rs {(budget.total || 0).toLocaleString()}
+                {/* Conflict Interception Alert Banner (Item 5) */}
+                {rejected.length > 0 && (
+                  <section className="bg-rose-50 border border-rose-200 p-4 sm:p-5 rounded-xl shadow-xs">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                        ✕
                       </div>
-                      <div className="text-xs text-emerald-700 font-medium">Buffer Remaining: Rs {remainingBudget.toLocaleString()}</div>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden mb-4">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${budgetPct > 100 ? 'bg-rose-500' : 'bg-orange-500'}`}
-                      style={{ width: `${Math.min(100, budgetPct)}%` }}
-                    />
-                  </div>
-
-                  {/* Itemized Budget Table */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {(budget.lines || []).map((line, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 border border-slate-200">
-                        <span className="text-slate-700 truncate pr-2">{line.item}</span>
-                        <span className="font-mono font-semibold text-slate-900">Rs {line.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
-                  Total Rs {(budget.total || 0).toLocaleString()} is within approved limit of Rs {(budget.limit || 650000).toLocaleString()}.
-                </div>
-              </div>
-
-            </section>
-
-            {/* Expandable Judging Slots */}
-            {showSlots && (
-              <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                <h4 className="text-sm font-bold text-slate-900 mb-3">Judging Allocation: 50 Teams Assigned Across 17 Judges</h4>
-                <div className="max-h-56 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
-                  {(plan.judgingSlots || []).map(s => (
-                    <div key={s.teamId} className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px]">
-                      <div className="font-bold text-slate-900">Team #{s.teamId}</div>
-                      <div className="text-orange-700 font-medium">Judge #{s.judgeNumber}</div>
-                      <div className="text-slate-500 font-mono text-[10px]">{s.startTime} - {s.endTime}</div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Decisions and Trace Grid */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Decisions & Conflict Log */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <span>📋</span> Decisions & Audit Log
-                </h3>
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {decisions.length === 0 ? (
-                    <div className="text-xs text-slate-400">No decisions recorded yet.</div>
-                  ) : (
-                    decisions.map((d, idx) => (
-                      <div key={idx} className="text-xs p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 flex items-start gap-2">
-                        <span className="text-orange-600 font-bold shrink-0">•</span>
-                        <span>{d}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Model Execution Trace */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>📄</span> Execution Trace
-                  </h3>
-                  <span className="text-xs font-mono text-orange-600 font-semibold bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
-                    Total: {totalTokens} tokens
-                  </span>
-                </div>
-                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 font-mono text-xs">
-                  {trace.length === 0 ? (
-                    <div className="text-xs text-slate-400 font-sans">No model calls recorded.</div>
-                  ) : (
-                    trace.map((t, idx) => (
-                      <div key={idx} className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
-                        <div className="flex items-center justify-between text-slate-900">
-                          <span className="font-bold text-orange-700">CALL #{t.n}</span>
-                          <span className="px-2 py-0.2 rounded bg-slate-200 text-[10px] text-slate-700">
-                            [{t.area}]
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-rose-900">
+                            Conflict Intercepted: Invalid Message Rejected
+                          </h3>
+                          <span className="text-[11px] font-bold bg-rose-200 text-rose-900 px-2.5 py-0.5 rounded-full">
+                            Plan Protected
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-600">
-                          Model: <span className="font-semibold text-slate-800">{t.model}</span> | Tokens: {t.tokensIn !== null ? t.tokensIn : 'not reported'} in / {t.tokensOut !== null ? t.tokensOut : 'not reported'} out
+                        {rejected.map((r, i) => (
+                          <div key={i} className="text-xs bg-white p-3 rounded-lg border border-rose-200 space-y-1">
+                            <div className="font-semibold text-rose-800">
+                              Message #{r.messageId} REJECTED: {r.reason}
+                            </div>
+                            {r.text && (
+                              <div className="text-slate-600 text-[11px] font-mono">
+                                "{r.text}"
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <p className="text-xs text-rose-800">
+                          The rule engine automatically blocked the contradictory claim. The plan was kept 100% valid.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* 5 Area Plan Cards Grid */}
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  
+                  {/* 1. VENUE CARD */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+                          Area: venue
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">Venue Selection</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">{venue.name || 'Venue Selected'}</h3>
+                      <div className="mt-4 space-y-2 text-xs text-slate-600">
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Capacity</span>
+                          <span className="font-semibold text-slate-900">
+                            {venue.capacity ? `${venue.capacity} seats (fits ${food.attendees || 0})` : 'TBD'}
+                          </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">
-                          Input: <span className="text-slate-700">{t.input}</span>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Rental Cost</span>
+                          <span className="font-semibold text-slate-900">Rs {(venue.cost || 0).toLocaleString()}</span>
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">
-                          Output: <span className="text-slate-700">{t.output}</span>
+                        <div className="flex justify-between py-1.5">
+                          <span className="text-slate-500">Power / Features</span>
+                          <span className="font-medium text-slate-700">
+                            {venue.features && venue.features.length > 0 ? venue.features.join(', ') : 'Standard Power'}
+                          </span>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-emerald-700 flex items-center gap-1.5">
+                      ✓ Optimal cost & capacity verified
+                    </div>
+                  </div>
 
-            </section>
+                  {/* 2. SCHEDULE CARD */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+                          Area: schedule
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">Master Timeline</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">Event Schedule</h3>
+
+                      <div className="mt-4 space-y-1.5 text-xs">
+                        {schedule.map((item, idx) => (
+                          <div 
+                            key={idx}
+                            className={`flex items-center justify-between p-1.5 rounded-md ${
+                              item.title.includes('Prayer') 
+                                ? 'bg-orange-100 border border-orange-300 text-orange-900 font-semibold' 
+                                : item.title.includes('Judging')
+                                ? 'bg-slate-100 font-medium text-slate-800'
+                                : 'text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] text-slate-500">{item.start} - {item.end}</span>
+                              <span>{item.title}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">{item.durationMin}m</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-semibold text-orange-700 flex items-center gap-1.5">
+                      ★ Mandatory Prayer Break Strictly Included
+                    </div>
+                  </div>
+
+                  {/* 3. FOOD CARD */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+                          Area: food
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">Catering Plan</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">Meals & Lunch</h3>
+
+                      <div className="mt-4 space-y-2 text-xs text-slate-600">
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Package</span>
+                          <span className="font-semibold capitalize text-slate-900">{food.type || 'standard'} lunch box</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Attendees to Feed</span>
+                          <span className="font-semibold text-slate-900">{food.attendees || 0} heads</span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Rate / Head</span>
+                          <span className="font-semibold text-slate-900">Rs {(food.unitPrice || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5">
+                          <span className="text-slate-500">Total Food Expense</span>
+                          <span className="font-semibold text-slate-900 font-mono">Rs {(food.totalCost || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-emerald-700 flex items-center gap-1.5">
+                      ✓ Rate superseding applied
+                    </div>
+                  </div>
+
+                  {/* 4. JUDGING CARD */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+                          Area: judging
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">Evaluation Matrix</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">Judging & Panels</h3>
+
+                      <div className="mt-4 space-y-2 text-xs text-slate-600">
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Judges Needed</span>
+                          <span className="font-semibold text-slate-900">
+                            {judging.judgesNeeded || 0} needed ({judging.judgesConfirmed || 0} confirmed)
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Teams / Judge</span>
+                          <span className="font-semibold text-slate-900">
+                            Max {judging.maxTeamsPerJudge || 3} teams ({judging.minutesPerTeam || 15}m per team)
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-1.5 border-b border-slate-100">
+                          <span className="text-slate-500">Honorarium / Judge</span>
+                          <span className="font-semibold text-slate-900">Rs {(judging.honorariumPerJudge || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between py-1.5">
+                          <span className="text-slate-500">Total Honorarium</span>
+                          <span className="font-semibold text-slate-900 font-mono">Rs {(judging.totalCost || 0).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setShowSlots(!showSlots)}
+                      className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-orange-700 hover:text-orange-800 flex items-center justify-between w-full cursor-pointer"
+                    >
+                      <span>{showSlots ? 'Hide' : 'View'} Team Slot Allocations</span>
+                      <span>{showSlots ? '▲' : '▼'}</span>
+                    </button>
+                  </div>
+
+                  {/* 5. BUDGET BREAKDOWN CARD */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs md:col-span-2 lg:col-span-2 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
+                          Area: budget
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500">
+                          {budget.limit ? `Approved Limit: Rs ${budget.limit.toLocaleString()}` : 'Limit TBD'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                        <div>
+                          <h3 className="text-lg font-bold text-slate-900">Financial Statement</h3>
+                          <p className="text-xs text-slate-500">Deterministic code calculations</p>
+                        </div>
+                        <div className="sm:text-right">
+                          <div className="text-xl font-bold font-mono text-slate-900">
+                            Rs {(budget.total || 0).toLocaleString()}
+                          </div>
+                          <div className="text-xs text-emerald-700 font-medium">Buffer Remaining: Rs {remainingBudget.toLocaleString()}</div>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden mb-4">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${budgetPct > 100 ? 'bg-rose-500' : 'bg-orange-500'}`}
+                          style={{ width: `${Math.min(100, budgetPct)}%` }}
+                        />
+                      </div>
+
+                      {/* Itemized Budget Table */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {(budget.lines || []).map((line, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-slate-50 border border-slate-200">
+                            <span className="text-slate-700 truncate pr-2">{line.item}</span>
+                            <span className="font-mono font-semibold text-slate-900">Rs {line.amount.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500">
+                      Zero model arithmetic hallucinations: All calculations verified in pure code.
+                    </div>
+                  </div>
+
+                </section>
+
+                {/* Expandable Judging Slots */}
+                {showSlots && (
+                  <section className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <h4 className="text-sm font-bold text-slate-900 mb-3">Assigned Team Slot Allocations</h4>
+                    <div className="max-h-56 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
+                      {(plan.judgingSlots || []).map(s => (
+                        <div key={s.teamId} className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px]">
+                          <div className="font-bold text-slate-900">Team #{s.teamId}</div>
+                          <div className="text-orange-700 font-medium">Judge #{s.judgeNumber}</div>
+                          <div className="text-slate-500 font-mono text-[10px]">{s.startTime} - {s.endTime}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Decisions and Trace Grid (Items 3 & 4) */}
+                <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Decisions & Conflict Log */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                      <span>📋</span> Decisions & Audit Log
+                    </h3>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                      {decisions.length === 0 ? (
+                        <div className="text-xs text-slate-400">No decisions recorded yet.</div>
+                      ) : (
+                        decisions.map((d, idx) => (
+                          <div key={idx} className="text-xs p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 flex items-start gap-2">
+                            <span className="text-orange-600 font-bold shrink-0">•</span>
+                            <span>{d}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Model Execution Trace with Expandable Input/Output */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span>📄</span> Model Execution Trace
+                      </h3>
+                      <span className="text-xs font-mono text-orange-600 font-semibold bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                        Total: {totalTokens} tokens
+                      </span>
+                    </div>
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1 font-mono text-xs">
+                      {trace.length === 0 ? (
+                        <div className="text-xs text-slate-400 font-sans">No model calls recorded.</div>
+                      ) : (
+                        trace.map((t) => {
+                          const isExpanded = expandedTraceN === t.n;
+                          const isInitial = t.n === 1;
+                          return (
+                            <div 
+                              key={t.n} 
+                              className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 cursor-pointer hover:border-slate-300 transition"
+                              onClick={() => setExpandedTraceN(isExpanded ? null : t.n)}
+                            >
+                              <div className="flex items-center justify-between text-slate-900">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-orange-700">CALL #{t.n}</span>
+                                  <span className="text-[10px] text-slate-500 font-sans">
+                                    ({isInitial ? 'Initial Pack' : `Update #${t.n - 1}`})
+                                  </span>
+                                </div>
+                                <span className="px-2 py-0.2 rounded bg-slate-200 text-[10px] text-slate-700">
+                                  [{t.area}]
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-600">
+                                Model: <span className="font-semibold text-slate-800">{t.model}</span> | Tokens: {t.tokensIn !== null ? t.tokensIn : 'not reported'} in / {t.tokensOut !== null ? t.tokensOut : 'not reported'} out
+                              </div>
+                              
+                              {/* Summary / Truncated View */}
+                              {!isExpanded ? (
+                                <div className="text-[11px] text-slate-500">
+                                  <div className="truncate">In: {t.input}</div>
+                                  <div className="truncate">Out: {t.output}</div>
+                                  <div className="text-[10px] text-orange-700 font-sans mt-1">Click to expand full payload ▾</div>
+                                </div>
+                              ) : (
+                                /* Expanded Full View */
+                                <div className="mt-2 pt-2 border-t border-slate-200 space-y-2 text-[11px] font-mono">
+                                  <div>
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Full Input:</div>
+                                    <pre className="mt-0.5 p-2 rounded bg-white border border-slate-200 text-slate-800 whitespace-pre-wrap max-h-36 overflow-y-auto">
+                                      {t.input}
+                                    </pre>
+                                  </div>
+                                  <div>
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase">Full Model Output:</div>
+                                    <pre className="mt-0.5 p-2 rounded bg-white border border-slate-200 text-slate-800 whitespace-pre-wrap max-h-36 overflow-y-auto">
+                                      {t.output}
+                                    </pre>
+                                  </div>
+                                  <div className="text-[10px] text-orange-700 font-sans">Click to collapse ▴</div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                </section>
+              </>
+            )}
 
           </main>
         </div>

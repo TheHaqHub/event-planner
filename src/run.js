@@ -78,8 +78,7 @@ async function main() {
   // Single reader call
   const readerResponse = await readMessages(messagesToProcess, currentTraceN + 1);
 
-  // Requirement 2: If result is null (parse failed after retry), do not crash:
-  // print "reader failed", keep old plan unchanged, exit cleanly.
+  // Requirement 2: If result is null, print "reader failed", keep old plan, exit cleanly
   if (!readerResponse || readerResponse.result === null || readerResponse.result === undefined) {
     console.log('reader failed');
     process.exit(0);
@@ -99,7 +98,6 @@ async function main() {
     };
     state.trace.push(formattedEntry);
 
-    // Sum token counts if reported
     if (typeof entry.tokensIn === 'number') {
       state.totalTokens = (state.totalTokens || 0) + entry.tokensIn;
     }
@@ -186,10 +184,7 @@ async function main() {
     }
   }
 
-  // Save state
   saveState(state);
-
-  // Print terminal trace
   printTrace(state);
 }
 

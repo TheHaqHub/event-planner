@@ -45,8 +45,8 @@ export function formatTrace(state) {
       const inputStr = typeof entry.input === 'object' ? JSON.stringify(entry.input) : String(entry.input || '');
       const outputStr = typeof entry.output === 'object' ? JSON.stringify(entry.output) : String(entry.output || '');
       
-      lines.push(`  Input:     ${inputStr.length > 200 ? inputStr.slice(0, 197) + '...' : inputStr}`);
-      lines.push(`  Output:    ${outputStr.length > 200 ? outputStr.slice(0, 197) + '...' : outputStr}`);
+           lines.push(`  Input:     ${inputStr}`);
+      lines.push(`  Output:    ${outputStr}`);
       lines.push(subSeparator);
     }
   }
@@ -70,8 +70,7 @@ export function formatTrace(state) {
     for (const r of state.rejected) {
       lines.push(`  ! Message #${r.messageId} REJECTED: ${r.reason}`);
       if (r.text) {
-        lines.push(`    Content: "${r.text.length > 100 ? r.text.slice(0, 97) + '...' : r.text}"`);
-      }
+        lines.push(`    Content: "${r.text}"`);      }
     }
     lines.push(subSeparator);
   }

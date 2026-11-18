@@ -199,8 +199,8 @@ Extract facts accurately from English and Roman Urdu texts.`;
     n: currentTraceN,
     model: data.model || model,
     area: 'reading',
-    input: userContent.length > 300 ? userContent.slice(0, 297) + '...' : userContent,
-    output: choiceText.length > 300 ? choiceText.slice(0, 297) + '...' : choiceText,
+     input: userContent,
+    output: choiceText,
     tokensIn,
     tokensOut
   };

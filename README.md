@@ -7,7 +7,7 @@ An intelligent, token-lean event planning agent built for the **Mind to Machine 
 ## Team Members
 - **Abdul Haq** — Backend Architecture, Deterministic Rule Engine, & State Management
 - **Naveed** — Reactive Frontend Dashboard, Trace Visualization, & UI Metrics
-- **Touseef** — AI Integration, Reader Service, & Token Optimization
+- **Touseef** — AI Integration, Groq Reader Service, & Token Optimization
 
 ---
 
@@ -47,14 +47,14 @@ An intelligent, token-lean event planning agent built for the **Mind to Machine 
 ```
 
 1. **One-Command Ingestion**: Same command runs initial packs and single-message updates without manual flags or hints.
-2. **Deterministic Rule Math (5 Tokens/Token Use Points)**: Language understanding is delegated to the model; all arithmetic (attendee counts, capacity, budget, and slot allocations) is executed in pure JavaScript.
+2. **Deterministic Rule Math**: Language understanding is delegated to the model; all arithmetic (attendee counts, capacity, budget, and slot allocations) is executed in pure JavaScript.
 3. **5-Area Comprehensive Plan**:
    - **Venue**: Selects cheapest capacity-fitting venue (Hall A, 200 capacity $\ge$ 177 attendees, Rs 120,000).
    - **Schedule**: Exact 240-minute breakdown with the mandatory **15-Minute Prayer Break** strictly scheduled.
    - **Food**: 177 attendees $\times$ Rs 1,200 standard lunch box = Rs 212,400.
    - **Judging**: 17 judges needed (20 confirmed), 15 mins/team, max 3 teams/judge, full 50-team slot allocations.
    - **Budget**: Rs 547,400 spent of approved Rs 650,000 limit (84.2% utilized, Rs 102,600 buffer).
-4. **Conflict Interception (20 Points - Catching the Wrong Message)**: Automatically intercepts and rejects updates that violate constraints (e.g. Caterer attempting to round down order to 100 boxes when 177 attendees must be fed).
+4. **Conflict Interception (Rule Guard)**: Automatically intercepts and rejects updates that violate constraints (e.g. Caterer attempting to round down order to 100 boxes when 177 attendees must be fed).
 5. **Real-time Monitoring Dashboard**: Web UI displaying active plan cards, 6 verification check badges, conflict alerts, and model call trace.
 
 ---
@@ -101,10 +101,10 @@ event-planner/
 ├── data/
 │   └── state.json          # Persistent state (plan, checks, trace, decisions)
 ├── public/
-│   └── index.html          # Reactive monitoring dashboard
+│   └── index.html          # Reactive monitoring dashboard (White & Orange)
 ├── src/
 │   ├── engine.js           # Pure rule engine, constraints, & supersede logic
-│   ├── reader.js           # Message ingestion & fact extraction interface
+│   ├── reader.js           # Message ingestion & fact extraction interface (Groq LLM)
 │   ├── run.js              # Main CLI entry point (One Command)
 │   ├── split.js            # Message tokenizer & boundary parser
 │   ├── state.js            # State loader & saver
@@ -113,6 +113,7 @@ event-planner/
 │   ├── mockReader.json     # Sample pack structured facts
 │   ├── sample_messages.txt # 8 raw sample pack messages
 │   └── suite.js            # End-to-end verification tests
+├── .env.example            # Environment template for Groq
 ├── package.json
 ├── server.js               # Express API and dashboard server
 └── README.md

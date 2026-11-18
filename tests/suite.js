@@ -18,9 +18,10 @@ async function runTestSuite() {
   assert.strictEqual(sampleSplit.length, 8, 'Should split into 8 messages');
 
   const { result: readerResult } = await readMessages(sampleSplit, 1);
-  assert.strictEqual(readerResult.messages.length, 8, 'Reader should extract 8 messages');
+  const messagesArr = Array.isArray(readerResult) ? readerResult : (readerResult.messages || []);
+  assert.strictEqual(messagesArr.length, 8, 'Reader should extract 8 messages');
 
-  const planResult = buildPlan(readerResult.messages);
+  const planResult = buildPlan(messagesArr.map((m, i) => ({ ...m, id: i + 1 })));
   console.log('Feed count calculated:', planResult.feed);
   assert.strictEqual(planResult.feed, 177, 'Feed count must be 177');
 
@@ -31,7 +32,6 @@ async function runTestSuite() {
     assert.ok(check.ok, `Check '${check.name}' must PASS`);
   }
 
-  // Verify Venue chosen is Hall A (Rs 120,000)
   assert.strictEqual(planResult.plan.venue.name, 'Hall A');
   assert.strictEqual(planResult.plan.budget.total, 547400);
 
@@ -40,14 +40,15 @@ async function runTestSuite() {
   const updateMsg = {
     id: 9,
     sender: 'Finance, email',
-    date: '15 Nov',
+    date: '',
     relevant: true,
     reason: '',
     text: 'Finance here. The printing bill came in at Rs 15,000, not Rs 10,000.',
-    facts: [{ kind: 'expense', item: 'printing', amount: 15000 }]
+    facts: [{ k: 'expense', item: 'printing', amount: 15000 }],
+    isNewUpdate: true
   };
 
-  const validation1 = validateAndApplyMessage(readerResult.messages, updateMsg, getEmptyState());
+  const validation1 = validateAndApplyMessage(messagesArr.map((m, i) => ({ ...m, id: i + 1 })), updateMsg, getEmptyState());
   assert.ok(validation1.ok, 'Update should be valid');
   assert.strictEqual(validation1.result.plan.budget.total, 552400, 'Budget should be 552,400 (547,400 + 5,000)');
   console.log('  Updated budget total:', validation1.result.plan.budget.total, '-> OK');
@@ -57,14 +58,15 @@ async function runTestSuite() {
   const invalidFoodMsg = {
     id: 10,
     sender: 'Caterer, WhatsApp',
-    date: '16 Nov',
+    date: '',
     relevant: true,
     reason: '',
     text: 'Caterer: I have rounded your order down to 100 boxes to keep the cost low.',
-    facts: [{ kind: 'claim', about: 'food_quantity', value: 100 }]
+    facts: [{ k: 'claim', about: 'food_quantity', value: 100 }],
+    isNewUpdate: true
   };
 
-  const validation2 = validateAndApplyMessage(readerResult.messages, invalidFoodMsg, getEmptyState());
+  const validation2 = validateAndApplyMessage(messagesArr.map((m, i) => ({ ...m, id: i + 1 })), invalidFoodMsg, getEmptyState());
   assert.strictEqual(validation2.ok, false, 'Invalid claim must be REJECTED');
   console.log('  Rejection reason:', validation2.rejectionReason);
   assert.ok(validation2.rejectionReason.includes('quantity 100 is less than 177 people to feed'));
@@ -74,14 +76,15 @@ async function runTestSuite() {
   const unknownConstraintMsg = {
     id: 11,
     sender: 'Organizer, email',
-    date: '16 Nov',
+    date: '',
     relevant: true,
     reason: '',
     text: 'Special constraint: Must have high ceilings for drone display.',
-    facts: [{ kind: 'constraint', area: 'venue', rule: 'Must have high ceilings for drone display' }]
+    facts: [{ k: 'constraint', area: 'venue', rule: 'Must have high ceilings for drone display' }],
+    isNewUpdate: true
   };
 
-  const validation3 = validateAndApplyMessage(readerResult.messages, unknownConstraintMsg, getEmptyState());
+  const validation3 = validateAndApplyMessage(messagesArr.map((m, i) => ({ ...m, id: i + 1 })), unknownConstraintMsg, getEmptyState());
   assert.ok(validation3.ok, 'Unknown constraint should not crash or fail checks');
   assert.ok(validation3.result.notes.some(n => n.includes('unhandled constraint')), 'Must record unhandled constraint in notes');
   console.log('  Plan notes:', validation3.result.notes);

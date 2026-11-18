@@ -29,6 +29,23 @@ export const CONSTRAINT_REGISTRY = {
   }
 };
 
+// Words that do not identify an expense (used for fuzzy matching of expense names)
+const GENERIC_WORDS = new Set([
+  'bill', 'bills', 'services', 'service', 'items', 'item', 'cost', 'costs',
+  'charges', 'charge', 'fee', 'fees', 'payment', 'order', 'ordered',
+  'backup', 'the', 'and', 'for', 'of'
+]);
+
+/**
+ * Returns the meaningful words of an expense name.
+ * e.g. "printing bill" -> ["printing"], "printing services" -> ["printing"]
+ */
+function sigTokens(item) {
+  return (item || '').toLowerCase().split(/[^a-z0-9]+/)
+    .filter(t => t && !GENERIC_WORDS.has(t))
+    .map(t => t.replace(/s$/, ''));
+}
+
 /**
  * Parses message date string assuming year 2026.
  * @param {string} dateStr e.g. "9 Nov"
@@ -44,7 +61,7 @@ export function parseMessageDate(dateStr) {
 /**
  * Generates unique key for deduplication and supersede comparison.
  * Accepts both fact.k and fact.kind.
- * @param {object} fact 
+ * @param {object} fact
  * @returns {string|null}
  */
 export function getFactKey(fact) {
@@ -68,7 +85,7 @@ export function getFactKey(fact) {
 
 /**
  * Builds plan and runs verification checks given messages and facts.
- * 
+ *
  * @param {Array} messages - List of message objects [{id, sender, date, relevant, reason, facts, isNewUpdate}]
  * @param {object} [existingPlan] - Optional previous plan state
  * @returns {object} { plan, checks, ignored, decisions, notes, feed, claims }
@@ -102,11 +119,11 @@ export function buildPlan(messages = [], existingPlan = null) {
     const facts = Array.isArray(msg.facts) ? msg.facts : [];
     for (const fact of facts) {
       const kind = fact.k || fact.kind;
-      const factWithMeta = { 
-        ...fact, 
-        k: kind, 
-        kind: kind, 
-        messageId: msg.id, 
+      const factWithMeta = {
+        ...fact,
+        k: kind,
+        kind: kind,
+        messageId: msg.id,
         dateStr: msg.date,
         isNewUpdate: !!msg.isNewUpdate
       };
@@ -132,7 +149,22 @@ export function buildPlan(messages = [], existingPlan = null) {
       }
 
       // Check if this fact can supersede or be superseded
-      const key = getFactKey(factWithMeta);
+      let key = getFactKey(factWithMeta);
+
+      // Fuzzy match for expenses: "printing bill" should replace "printing services"
+      if (kind === 'expense' && key && !activeFactsByKey.has(key)) {
+        const toks = sigTokens(fact.item);
+        for (const k of activeFactsByKey.keys()) {
+          if (k.startsWith('expense:')) {
+            const other = sigTokens(activeFactsByKey.get(k).item);
+            if (toks.some(t => other.includes(t))) {
+              key = k;
+              break;
+            }
+          }
+        }
+      }
+
       if (key) {
         if (!activeFactsByKey.has(key)) {
           activeFactsByKey.set(key, factWithMeta);
@@ -501,10 +533,10 @@ export function buildPlan(messages = [], existingPlan = null) {
 /**
  * Validates new incoming message(s).
  * Rejects the message if any check fails or contradicts known facts.
- * 
- * @param {Array} currentMessages 
- * @param {object} newMessage 
- * @param {object} previousValidState 
+ *
+ * @param {Array} currentMessages
+ * @param {object} newMessage
+ * @param {object} previousValidState
  * @returns {object} { ok: boolean, result: object, rejectionReason: string|null }
  */
 export function validateAndApplyMessage(currentMessages, newMessage, previousValidState) {

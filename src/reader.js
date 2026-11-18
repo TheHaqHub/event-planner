@@ -139,6 +139,10 @@ Schema:
     }
   ]
 }
+3. The "date" field MUST be extracted exactly from the message header (e.g. "email (9 Nov)" → date is "9 Nov", "WhatsApp (12 Nov)" → date is "12 Nov"). Copy the date string verbatim from the parentheses in the "From:" line. If no date is found, use an empty string "".
+4. Each input message has an "index" field. Your output messages array MUST be in the exact same order, one output per input, matching by position.
+5. Never swap or shift dates between messages. Each message's date belongs only to that message.
+
 Extract facts accurately from English and Roman Urdu texts.`;
 
   const userContent = JSON.stringify(newMessages.map((m, i) => ({ index: i, text: m.text })));
@@ -159,7 +163,8 @@ Extract facts accurately from English and Roman Urdu texts.`;
         { role: 'user', content: userContent }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.1
+      temperature: 0.1,
+      max_tokens: 8192
     }),
     signal: controller.signal
   });

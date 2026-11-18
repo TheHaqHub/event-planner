@@ -39,6 +39,10 @@ async function main() {
   let messagesToProcess = [];
   let nextMessageId = 1;
 
+  // Determine run number
+  const previousRunNumber = (state && state.runNumber) ? state.runNumber : 0;
+  const currentRunNumber = previousRunNumber + 1;
+
   if (isFullRun) {
     state = getEmptyState();
     messagesToProcess = parsedMessages.map((m, idx) => ({
@@ -71,6 +75,9 @@ async function main() {
     process.exit(0);
   }
 
+  // Update run number
+  state.runNumber = currentRunNumber;
+
   // Determine starting trace call number
   state.trace = state.trace || [];
   let currentTraceN = state.trace.length;
@@ -78,7 +85,7 @@ async function main() {
   // Single reader call
   const readerResponse = await readMessages(messagesToProcess, currentTraceN + 1);
 
-  // Record incoming trace entries
+  // Record incoming trace entries with run number
   const incomingTraceEntries = readerResponse?.traceEntries || 
     (readerResponse?.traceEntry ? [readerResponse.traceEntry] : []);
 
@@ -87,6 +94,8 @@ async function main() {
     const formattedEntry = {
       ...entry,
       n: currentTraceN,
+      run: currentRunNumber,
+      runType: isFullRun ? 'full' : 'update',
       tokensIn: typeof entry.tokensIn === 'number' ? entry.tokensIn : null,
       tokensOut: typeof entry.tokensOut === 'number' ? entry.tokensOut : null
     };

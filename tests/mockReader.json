@@ -1,0 +1,86 @@
+[
+  {
+    "sender": "Dean's office, email",
+    "date": "9 Nov",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "param", "name": "duration_hours", "value": 4 },
+      { "k": "param", "name": "headcount_students", "value": 150 },
+      { "k": "param", "name": "team_size", "value": 3 },
+      { "k": "param", "name": "budget_total", "value": 650000 },
+      { "k": "param", "name": "staff_count", "value": 10 },
+      { "k": "param", "name": "prayer_break_min", "value": 15 }
+    ]
+  },
+  {
+    "sender": "Margalla Event Halls, email",
+    "date": "3 Nov",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "venue", "name": "Room D", "capacity": 80, "cost": 40000, "features": [] },
+      { "k": "venue", "name": "Hall A", "capacity": 200, "cost": 120000, "features": [] },
+      { "k": "venue", "name": "Hall B", "capacity": 200, "cost": 150000, "features": ["standby generator"] },
+      { "k": "venue", "name": "Hall C", "capacity": 300, "cost": 220000, "features": ["standby generator"] }
+    ]
+  },
+  {
+    "sender": "Caterer, WhatsApp",
+    "date": "20 Oct",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "price", "item": "standard lunch box", "amount": 1000, "per": "head" }
+    ]
+  },
+  {
+    "sender": "Caterer, WhatsApp",
+    "date": "12 Nov",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "price", "item": "standard lunch box", "amount": 1200, "per": "head" },
+      { "k": "price", "item": "basic lunch box", "amount": 800, "per": "head" }
+    ]
+  },
+  {
+    "sender": "Judging coordinator, email",
+    "date": "11 Nov",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "param", "name": "judges_confirmed", "value": 20 },
+      { "k": "param", "name": "honorarium", "value": 5000 },
+      { "k": "param", "name": "judge_minutes_per_team", "value": 15 },
+      { "k": "param", "name": "judge_max_teams", "value": 3 }
+    ]
+  },
+  {
+    "sender": "Finance, email",
+    "date": "10 Nov",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "expense", "item": "prizes", "amount": 100000 },
+      { "k": "expense", "item": "backup internet", "amount": 20000 },
+      { "k": "expense", "item": "printing", "amount": 10000 }
+    ]
+  },
+  {
+    "sender": "Student society, WhatsApp",
+    "date": "13 Nov",
+    "relevant": true,
+    "reason": "",
+    "facts": [
+      { "k": "request", "item": "DJ", "amount": 50000 }
+    ]
+  },
+  {
+    "sender": "A judge, WhatsApp",
+    "date": "14 Nov",
+    "relevant": false,
+    "reason": "Traffic notification does not alter schedule or planning parameters",
+    "facts": []
+  }
+]
